@@ -161,7 +161,7 @@ ui <- fluidPage( theme = "bootstrap.css",
                    fluidRow(
                      column( offset = 1,width=10,
                    h1("Understanding the emissions from the National Grid"),           
-                   tags$li("The amount of electricity we use during the day varies as people wake up, leave for work, come home and watch TV, there's usually a spike around 6pm."),
+                   tags$li("The amount of electricity we use during the day varies, as the sun goes down and the lights come on there is usually a spike in demand."),
                    tags$li("Electricity companies use different power sources to meet this changing demand."),
                    tags$li("This is because some power sources are more flexible than others and when it's windy, the wind farms generate more than on calm days."),
                    tags$li("You can see all of this happening in this webapp"),
