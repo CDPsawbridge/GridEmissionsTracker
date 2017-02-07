@@ -23,5 +23,7 @@ https://cdpsawbridge.shinyapps.io/GridEmissionsTracker/
 On the todo list:
 
 +add a live grid emissions intensity tracker plot, bascially a line of tCO2e/KWh.
+
 +add weather information
+
 +try and find total consumption figures, and use to infer emissions of unmetered generation.
