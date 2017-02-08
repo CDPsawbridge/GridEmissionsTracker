@@ -4,8 +4,6 @@ require(reshape2)
 require(ggplot2)
 require(stringi)
 
-
-
 server<-function(input,output){
 
 link24<-paste0("https://www.bmreports.com/bmrs/?q=ajax/csv_download/FUELINST/csv/&filename=GenerationbyFuelType24HrInstantaneous_",format(Sys.time()-120,"%Y%m%d_%H%M"))
@@ -85,34 +83,53 @@ bmPlotFrame<-subset(bm24,select=c("timestamp","colCol","Source","MW","tCO2e")) %
   bmPlotFrame2$Source<-as.character(bmPlotFrame2$Source)
   bmPlotFrame2$Source[bmPlotFrame2$Source=="Oil"]<-'Blank'  
   bmPlotFrame2$value<-0
-  
+  bmPlotFrame2<-  bmPlotFrame2[!is.na(bmPlotFrame2$timestamp),]
     for(n in 1:length(EF$Source)){
       bmPlotFrame2<-rbind(bmPlotFrame2,bmPlotFrame[bmPlotFrame$Source==EF$Source[n],])
     }
     
   bmPlotFrame2$Source<-as.factor(bmPlotFrame2$Source)
-
+  # calculate the grid intensity, remeber to multiply by 12 to get it into MWh (or actually divide it really) because it's done in 5 minute time slots
+  # have added the +0.0000000000000000001 to avoid dividing by 0
+  bmPlotFrame3<-bmPlotFrame2 %>% 
+    dcast(timestamp+colCol+Source~variable) %>% 
+    group_by(timestamp) %>% 
+    summarise(value=sum(tCO2e,na.rm=T)/(sum(MW,na.rm=T)+0.0000000000000000001)*12) %>%
+    mutate(variable="tCO2e/MWh",
+           Source="Current",
+           colCol="#DC863F")
+  
+  
+  # rbind on values for the IEA and daily average, not using an abline because it only appears on one of the facets
+  bmPlotFrame4<- rbind(mutate(bmPlotFrame3,value=mean(bmPlotFrame3$value,na.rm=T) ,Source="Daily Avergae"), 
+                       mutate(bmPlotFrame3,value=0.45885,Source="IEA Official Value (2012)"),
+                       bmPlotFrame3,
+                       bmPlotFrame2)
+  
 output$bmPlot<-renderPlot({  
   if(length(input$checkGroup)>0){
     # browser()
     HScol<-mdf[mdf$num %in% input$checkGroup,] %>% arrange(Source) 
     HScol<- as.character(HScol$colCol)
-    bmPlotFrame2<-bmPlotFrame2[bmPlotFrame2$variable %in% c("tCO2e","MW"),]
+    # bmPlotFrame2<-bmPlotFrame2[bmPlotFrame2$variable %in% c("tCO2e","MW"),]
     labList<-c(`tCO2e`="Emissions (tCO2e)",`MW`="Power Output (MW)")
-            ggplot(data=bmPlotFrame2[bmPlotFrame2$Source %in% as.character(mdf$Source[mdf$num %in% input$checkGroup ]),],
-                   aes(y=value,x=as.POSIXlt(timestamp),fill=Source))+
-            geom_area()+
-            facet_grid(variable~.,scales="free_y", labeller = as_labeller(labList))+
-              ggtitle('UK Energy Mix and Greenhouse Gas Emissions over the last 24hrs')+
-            theme(strip.text.y = element_text(size = 14,face="bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_blank(),    
-                  axis.text.x  = element_text(size=16),
-                  axis.text.y  = element_text(size=16),
-                  legend.text = element_text(size=16),
-                  legend.title = element_text(face="bold",size=16),
-                  title = element_text(face="bold",size=16))+
-            scale_fill_manual(values=HScol)
+    
+bmPlotFrame5<-  bmPlotFrame4[bmPlotFrame4$Source %in% c("Daily Avergae","IEA Official Value (2012)", "Current" ,as.character(mdf$Source[mdf$num %in% input$checkGroup ])),] 
+            ggplot(data=bmPlotFrame5,aes(y=value,x=as.POSIXlt(timestamp)))+
+      geom_area(data=subset(bmPlotFrame5,variable %in% c("MW","tCO2e")),aes(fill=Source))+
+      geom_line(data=subset(bmPlotFrame5,variable %in% c("tCO2e/MWh")),aes(colour=Source))+
+      facet_grid(variable~.,scales="free_y")+
+      ggtitle('UK Energy Mix and Greenhouse Gas Emissions over the last 24hrs')+
+      theme(strip.text.y = element_text(size = 14,face="bold"),
+            axis.title.x = element_blank(),
+            axis.title.y = element_blank(),    
+            axis.text.x  = element_text(size=16),
+            axis.text.y  = element_text(size=16),
+            legend.text = element_text(size=16),
+            legend.title = element_text(face="bold",size=16),
+            title = element_text(face="bold",size=16))+
+            scale_fill_manual(values=c(HScol,colVec))
+
   } else{
     ggplot(data=bmPlotFrame2[bmPlotFrame2$Source %in% as.character(mdf$Source[mdf$num %in% 1:13 ]),],
            aes(y=value,x=as.POSIXlt(timestamp),fill=Source))+ 
@@ -181,7 +198,7 @@ ui <- fluidPage( theme = "bootstrap.css",
     sidebarPanel( h3('Explore the data'),
                  
                 
-                 
+# notes               
 #                  "CCGT"=1,
 #                  "OCGT"=2,
 #                  "Coal"=3,
@@ -250,10 +267,9 @@ ui <- fluidPage( theme = "bootstrap.css",
                                  
                          ))
       )
-      # fluidRow( plotOutput("weatherPlot"))
     )
 )
-# )
+
 )
 ))
  
